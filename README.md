@@ -1,104 +1,41 @@
 # Nesa Claimer
 
-Nesa Claimer is a security-focused, menu-driven command-line tool for researching
-and claiming historical Nesa miner rewards across multiple signing keys. It can
-discover multiple Node IDs linked to one key, check each allocation, and submit
-eligible claims to a validated EVM destination.
+Nesa Claimer is a simple terminal tool for researching and claiming Nesa miner
+rewards across multiple private keys and historical Node IDs.
 
-> [!CAUTION]
-> Claim transactions are irreversible. Review every discovered Node ID, reward
-> amount, claim method, and destination address before approving a submission.
-> This community project is not affiliated with or endorsed by Nesa.
+> Claims are irreversible. Review every Node ID, reward amount, and destination
+> address before confirming a claim.
 
-## What the tool does
+## Features
 
-Nesa Claimer supports the two identity paths used by Nesa's official reward
-tools:
+- Add any number of private keys securely.
+- Find multiple Node IDs associated with each key.
+- Display original and remaining rewards.
+- Detect already-claimed allocations.
+- Validate the destination EVM address.
+- Claim all available rewards with live status and transaction logs.
+- Save only secret-free reports outside the project directory.
 
-- **Historical/alternate identity:** searches known public dashboard registries
-  for Node IDs associated with the compressed secp256k1 public key, then uses
-  Nesa's alternate-key claim endpoint.
-- **Deterministic identity:** reproduces the identity algorithm used by the
-  official normal claim script and includes that Node ID only when Nesa's reward
-  service verifies an allocation for it.
-
-For every verified Node ID, the application displays the original allocation,
-remaining claimable amount, claim status, discovery source, and required claim
-method. One signing key may be associated with multiple historical Node IDs;
-each ID is checked and, when eligible, claimed separately.
-
-## Important historical limitation
-
-Older Nesa installations could generate the miner Node ID independently from
-the secp256k1 request-signing key. In that situation, the private key cannot
-mathematically reconstruct the old Node ID. Discovery depends on a surviving
-historical public key-to-Node-ID registry record.
-
-If a legacy registry is unavailable or times out, Nesa Claimer reports the
-lookup as **inconclusive**. It does not claim that the key never operated a
-miner. A newly derived Node ID is never presented as a historical match unless
-the reward service verifies an allocation for it.
-
-## Security model
-
-Private keys are entered one at a time through a **hidden terminal prompt**:
-
-- typed characters are not displayed on screen;
-- keys are never printed in tables, logs, errors, or reports;
-- keys are not accepted through command-line arguments;
-- keys are not written to `.env` files, key lists, configuration, or state;
-- keys remain only in the running Python process and are cleared on normal exit;
-- reports identify keys using a short public-key fingerprint, never secret data;
-- signatures are produced locally and only signed claim payloads are submitted.
-
-Memory clearing in Python is best effort. The interpreter or operating system
-may retain temporary copies in memory or swap. Run the tool only on a trusted,
-fully patched computer with no untrusted monitoring, terminal recording, or
-malware.
-
-The application does not require a Hugging Face token, seed phrase, mnemonic,
-wallet export, or Nesa account password.
-
-## Requirements
-
-- Bash
-- Python 3.10 or newer
-- Internet access to the public Nesa services
-- `sudo` or root access only when system packages must be installed
-- A terminal that supports hidden password-style input
-
-The installer supports Debian/Ubuntu, Fedora/RHEL, Arch Linux, Alpine Linux,
-macOS with Homebrew, and compatible WSL environments.
-
-## Install and run
-
-Clone your published repository and launch the bootstrap menu:
+## Install
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/nesa-claimer.git
+git clone https://github.com/papa-multi/nesa-claimer.git
 cd nesa-claimer
 chmod 700 nesa-claimer install.sh
 ./nesa-claimer
 ```
 
-On a fresh system, select **Option 1: Install all prerequisites**. The installer:
+On the first run, choose **Option 1** to install everything required. When the
+installation finishes, the main menu will open automatically.
 
-1. detects the available package manager;
-2. installs Python, virtual-environment support, CA certificates, and Git when
-   required;
-3. creates an isolated `.venv` inside the project directory;
-4. installs pinned Python dependencies; and
-5. verifies the installed application and cryptographic libraries.
-
-The full menu opens automatically after a successful installation. For later
-runs, use:
+For later runs:
 
 ```bash
 cd nesa-claimer
 ./nesa-claimer
 ```
 
-## Main menu
+## Menu
 
 ```text
 1  Install all prerequisites
@@ -109,90 +46,58 @@ cd nesa-claimer
 0  Exit
 ```
 
-### Option 1 — Install all prerequisites
+### 1. Install all prerequisites
 
-Installs and verifies the system and Python requirements. Re-running this option
-is safe when the isolated environment already exists.
+Installs Python and the required packages in an isolated project environment.
 
-### Option 2 — Securely add private keys
+### 2. Securely add private keys
 
-Enter the number of keys, then enter each 32-byte secp256k1 private key through
-the hidden prompt. Both plain 64-character hexadecimal values and `0x`-prefixed
-values are accepted.
+Enter how many private keys you have, then enter them one at a time.
 
-The prompt displays only validation progress and a public fingerprint. It never
-echoes the private key. Duplicate keys are rejected. Keys are held in memory
-only for the current application session, so they must be entered again after
-exiting or restarting the program.
+**Private-key input uses a hidden prompt. Typed keys are never displayed on the
+screen.** Keys are kept in memory only for the current session and are not saved
+to files, reports, logs, or configuration.
 
-### Option 3 — Research Node IDs and rewards
+### 3. Research Node IDs and rewards
 
-For each in-memory key, the application:
+Searches available Nesa services for every Node ID associated with each key. It
+displays the reward for each Node ID, totals for each key, and the total across
+all keys.
 
-1. derives the compressed public key and Nesa address locally;
-2. searches and paginates all configured public dashboard registries;
-3. collects every exact public-key-to-Node-ID match;
-4. checks the official deterministic Node ID against the allocation service;
-5. deduplicates Node IDs and rejects contradictory key mappings;
-6. retrieves original and remaining reward amounts;
-7. labels already-claimed and currently available allocations; and
-8. asks the user to review and confirm the result.
+Some older Node IDs were generated separately from the private key. If an old
+registry is unavailable, the tool reports the result as inconclusive instead of
+saying that the miner never existed.
 
-Claiming remains disabled until the current research results are explicitly
-confirmed. A secret-free report is written with owner-only permissions to:
+Review the results and confirm them before claiming.
 
-```text
-~/.local/state/nesa-claimer/research-report.json
-```
+### 4. Add an EVM destination
 
-The report can contain public information such as compressed public keys, Nesa
-addresses, Node IDs, allocation amounts, and lookup diagnostics. It never
-contains private keys.
+Enter the EVM address that should receive successful claims. The address is
+validated and shown for confirmation before it is saved.
 
-### Option 4 — Add or change the EVM destination
+### 5. Claim all available rewards
 
-Enter the EVM address that should receive successful claims. The application
-validates the address and verifies mixed-case EIP-55 checksums before displaying
-it for confirmation.
+Refreshes every allocation, signs eligible claims locally, and submits them one
+at a time. The terminal displays the current key number, Node ID, reward amount,
+status, transaction hash, verification result, errors, and final summary.
 
-Only the public destination address is saved, with owner-only permissions, to:
+The tool asks for confirmation before submitting any claim.
 
-```text
-~/.local/state/nesa-claimer/config.json
-```
+## Security
 
-Confirm that you control the address. A valid address cannot be recovered or
-changed after a blockchain transaction has already sent funds to it.
+- Never paste private keys into chats, shell commands, GitHub issues, or files.
+- Private-key entry is hidden and never echoed to the terminal.
+- Private keys are never uploaded or written to disk by the tool.
+- No Hugging Face token, seed phrase, or wallet export is required.
+- Runtime reports are stored outside the repository under
+  `~/.local/state/nesa-claimer/` with owner-only permissions.
+- Memory clearing is best effort; use a trusted and secure computer.
+- Always verify the destination address before claiming.
 
-### Option 5 — Claim all available rewards
+The repository includes a secret scanner. Run it before committing:
 
-Before submitting anything, this option requires:
-
-- private keys loaded during the current session;
-- confirmed research results;
-- a validated EVM destination;
-- acceptance of the displayed claim terms; and
-- final confirmation of the claim batch.
-
-Each allocation is refreshed immediately before signing. The terminal shows:
-
-- key entry number and public fingerprint;
-- Node ID, evidence source, and claim method;
-- live reward amount;
-- signing and submission status;
-- returned transaction hash and explorer link;
-- receipt verification status;
-- errors, skipped claims, and ambiguous responses; and
-- final successful, failed, skipped, and ambiguous totals.
-
-Claims run sequentially with a delay between requests. Known pre-submission
-service failures may be retried. If a network response is ambiguous, the tool
-stops rather than risk blindly resubmitting a transaction.
-
-Secret-free claim results are stored outside the repository at:
-
-```text
-~/.local/state/nesa-claimer/claim-results.json
+```bash
+python3 scripts/scan-secrets.py .
 ```
 
 ## Public services used
@@ -208,64 +113,17 @@ Secret-free claim results are stored outside the repository at:
 | Nesa EVM JSON-RPC | `https://erpc.nesa.ai` |
 | EVM transaction explorer | `https://explorer-evm.nesa.ai` |
 
-Public keys, Node IDs, addresses, allocation queries, signatures, nonces,
-timestamps, and signed claim data may be sent to these services as required by
-the selected operation. Private keys are never transmitted.
+The tool may send public keys, Node IDs, public addresses, allocation queries,
+signatures, nonces, timestamps, and signed claim data to these services. Private
+keys are never transmitted.
 
-The claim payload implementations were checked against Nesa's official
+Claim payloads were checked against Nesa's official
 [`miner-rewards-cli`](https://github.com/nesaorg/miner-rewards-cli/tree/alternate-key-cli)
-`alternate-key-cli` branch at commit
-`b204312dd53104df9680f08438c15e25177c0dc8`. Re-audit against upstream whenever
-Nesa changes its claim process or endpoints.
+claim tools.
 
+## Disclaimer
 
-
-## Development
-
-```bash
-./install.sh
-source .venv/bin/activate
-python -m pip install '.[dev]'
-python scripts/scan-secrets.py .
-pytest -q
-python -m build
-```
-
-Automated tests and the secret scanner also run through GitHub Actions on pushes
-and pull requests for supported Python versions.
-
-## Troubleshooting
-
-### “No verified reward match”
-
-This means no allocation-backed identity was found through the services that
-responded. It does not prove an older miner never existed. Read the accompanying
-registry diagnostics, especially for legacy service timeouts.
-
-### “Already claimed” with zero remaining
-
-The original allocation and remaining amount are separate values. An allocation
-can show a positive original total while its remaining amount is zero because it
-has already been claimed.
-
-### The legacy registry returns HTTP 504
-
-The old mapping service is unavailable or too slow. The application records the
-lookup as inconclusive and continues with reachable registries and deterministic
-allocation verification.
-
-### Keys disappeared after exiting
-
-This is intentional. Private keys are never persisted and must be re-entered
-through Option 2 for each application session.
-
-## Responsible use and disclaimer
-
-Use this tool only for miners and signing keys you lawfully own or are authorized
-to operate. Follow Nesa's terms and all laws applicable in your jurisdiction.
-This software is provided without warranty and is not financial, legal, tax, or
-security advice. The maintainers cannot reverse claims, recover funds sent to an
-incorrect destination, restore unavailable registry data, or guarantee service
-availability.
-
-See [SECURITY.md](SECURITY.md) for responsible vulnerability reporting.
+Use this tool only for miners and keys you own or are authorized to operate.
+This community project is not affiliated with Nesa and is provided without
+warranty. The maintainers cannot reverse claims or recover funds sent to an
+incorrect address.

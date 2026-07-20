@@ -48,6 +48,9 @@ NORMAL_CLAIM_API = "https://rewards-proxy.nesa.ai/api/claim"
 EVM_RPC = "https://erpc.nesa.ai"
 EXPLORER_TX = "https://explorer-evm.nesa.ai/tx/"
 ANES_PER_NES = Decimal(10**18)
+RIPEMD160_EMPTY_DIGEST = bytes.fromhex(
+    "9c1185a5c5e9fc54612808977ee8f548b2258d31"
+)
 MAX_RETRIES = 5
 PAGE_SIZE = 20
 CLAIM_DELAY_SECONDS = 5
@@ -135,10 +138,48 @@ def public_key_fingerprint(public_key: str) -> str:
     return hashlib.sha256(bytes.fromhex(public_key)).hexdigest()[:12]
 
 
-def ripemd160(value: bytes) -> bytes:
+def _hashlib_ripemd160(value: bytes) -> bytes:
     digest = hashlib.new("ripemd160")
     digest.update(value)
     return digest.digest()
+
+
+def _pycryptodome_ripemd160(value: bytes) -> bytes:
+    try:
+        from Crypto.Hash import RIPEMD160
+    except (ImportError, ModuleNotFoundError) as exc:
+        raise CliError(
+            "RIPEMD160 is unavailable through both Python/OpenSSL and the "
+            "PyCryptodome fallback. Run Option 1 to install or repair prerequisites."
+        ) from exc
+    return RIPEMD160.new(data=value).digest()
+
+
+def ripemd160_backend() -> str:
+    """Return a backend only after it passes the standard empty-message vector."""
+    try:
+        if _hashlib_ripemd160(b"") == RIPEMD160_EMPTY_DIGEST:
+            return "hashlib/OpenSSL"
+    except Exception:
+        pass
+
+    try:
+        if _pycryptodome_ripemd160(b"") == RIPEMD160_EMPTY_DIGEST:
+            return "PyCryptodome fallback"
+    except Exception:
+        pass
+
+    raise CliError(
+        "RIPEMD160 support is unavailable or failed its cryptographic self-test. "
+        "Run Option 1 to install or repair prerequisites, then retry research."
+    )
+
+
+def ripemd160(value: bytes) -> bytes:
+    backend = ripemd160_backend()
+    if backend == "hashlib/OpenSSL":
+        return _hashlib_ripemd160(value)
+    return _pycryptodome_ripemd160(value)
 
 
 def derive_normal_identity(
@@ -620,6 +661,13 @@ class RewardsApp:
         checks.add_row("ecdsa", f"[green]{ecdsa.__version__}[/green]")
         checks.add_row("Terminal UI", "[green]Rich installed[/green]")
         checks.add_row("EIP-55 / Keccak", "[green]eth-utils installed[/green]")
+        crypto_repair_required = False
+        try:
+            backend = ripemd160_backend()
+            checks.add_row("RIPEMD160", f"[green]{backend} verified[/green]")
+        except CliError as exc:
+            crypto_repair_required = True
+            checks.add_row("RIPEMD160", "[red]Unavailable — repair required[/red]")
         console.print(checks)
 
         installer = Path(__file__).resolve().with_name("install.sh")
@@ -629,7 +677,12 @@ class RewardsApp:
                 "The standalone system installer is available in the GitHub repository."
             )
             return
-        if not Confirm.ask(
+        if crypto_repair_required:
+            console.print(
+                "[yellow]RIPEMD160 support is missing. Running the prerequisite "
+                "installer automatically…[/yellow]"
+            )
+        elif not Confirm.ask(
             "Prerequisites are already available. Re-run the full system installer?",
             default=False,
         ):
@@ -638,6 +691,14 @@ class RewardsApp:
         result = subprocess.run(["bash", str(installer)], check=False)
         if result.returncode != 0:
             raise CliError(f"Prerequisite installer exited with status {result.returncode}.")
+        try:
+            backend = ripemd160_backend()
+        except CliError as exc:
+            raise CliError(
+                "Installation completed, but RIPEMD160 verification still failed. "
+                "Check the installer output and Python environment before research."
+            ) from exc
+        console.print(f"[green]RIPEMD160 verified with {backend}.[/green]")
         console.print("[bold green]All prerequisites installed and verified.[/bold green]")
 
     def wipe_keys(self) -> None:
@@ -711,6 +772,8 @@ class RewardsApp:
     def research(self) -> None:
         if not self.keys:
             raise CliError("Choose Option 2 and add private keys first.")
+        backend = ripemd160_backend()
+        console.print(f"[dim]RIPEMD160 preflight passed ({backend}).[/dim]")
         self.research_confirmed = False
         global_nodes: dict[str, int] = {}
 

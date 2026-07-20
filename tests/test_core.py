@@ -1,8 +1,11 @@
 import secrets
 
 import pytest
+import nesa_claimer as app_module
 
 from nesa_claimer import (
+    CliError,
+    RewardsApp,
     build_claim_payload,
     build_normal_claim_payload,
     canonical_json,
@@ -11,6 +14,8 @@ from nesa_claimer import (
     extract_tx_hash,
     format_nes,
     normalize_private_key,
+    ripemd160,
+    ripemd160_backend,
     validate_evm_address,
 )
 
@@ -28,6 +33,47 @@ def test_random_private_key_derives_compressed_public_key():
     public_key = compressed_public_key(secret)
     assert len(public_key) == 66
     assert public_key[:2] in {"02", "03"}
+
+
+def test_ripemd160_standard_vectors():
+    assert ripemd160(b"").hex() == "9c1185a5c5e9fc54612808977ee8f548b2258d31"
+    assert ripemd160(b"a").hex() == "0bdc9d2d256b3ee9daae347be6f4dc835a467ffe"
+    assert ripemd160_backend() in {"hashlib/OpenSSL", "PyCryptodome fallback"}
+
+
+def test_ripemd160_uses_verified_fallback(monkeypatch):
+    def unavailable(_value):
+        raise ValueError("unsupported hash type ripemd160")
+
+    monkeypatch.setattr(app_module, "_hashlib_ripemd160", unavailable)
+    assert ripemd160_backend() == "PyCryptodome fallback"
+    assert ripemd160(b"").hex() == "9c1185a5c5e9fc54612808977ee8f548b2258d31"
+
+
+def test_ripemd160_failure_has_actionable_error(monkeypatch):
+    def unavailable(_value):
+        raise ValueError("unavailable")
+
+    def missing_fallback(_value):
+        raise CliError("fallback missing")
+
+    monkeypatch.setattr(app_module, "_hashlib_ripemd160", unavailable)
+    monkeypatch.setattr(app_module, "_pycryptodome_ripemd160", missing_fallback)
+    with pytest.raises(CliError, match="Run Option 1"):
+        ripemd160_backend()
+
+
+def test_fallback_preserves_identity_derivation(monkeypatch):
+    secret = disposable_secret()
+    expected = derive_normal_identity(secret)
+
+    def unavailable(_value):
+        raise ValueError("unsupported hash type ripemd160")
+
+    monkeypatch.setattr(app_module, "_hashlib_ripemd160", unavailable)
+    assert derive_normal_identity(secret) == expected
+    for index in range(len(secret)):
+        secret[index] = 0
 
 
 def test_private_key_accepts_0x_prefix():
@@ -111,3 +157,37 @@ def test_recursive_transaction_hash_extraction():
 def test_amount_formatting_preserves_integer_zero():
     assert format_nes(30 * 10**18) == "30"
     assert format_nes(1230000000000000000) == "1.23"
+
+
+def test_hidden_dummy_key_research_workflow(monkeypatch, tmp_path, capsys):
+    secret_text = secrets.token_hex(32)
+    monkeypatch.setattr(app_module, "CONFIG_PATH", tmp_path / "config.json")
+    monkeypatch.setattr(app_module, "RESEARCH_PATH", tmp_path / "research-report.json")
+    monkeypatch.setattr(app_module, "CLAIMS_PATH", tmp_path / "claim-results.json")
+    monkeypatch.setattr(app_module.IntPrompt, "ask", lambda *args, **kwargs: 1)
+    monkeypatch.setattr(app_module.getpass, "getpass", lambda *args, **kwargs: secret_text)
+    monkeypatch.setattr(app_module.Confirm, "ask", lambda *args, **kwargs: True)
+
+    class OfflineClient:
+        @staticmethod
+        def find_nodes_across_registries(_public_key):
+            return [], []
+
+        @staticmethod
+        def allocation(_node_id, _cosmos_address=None):
+            return {
+                "total_allocation": "0",
+                "remaining_allocation": "0",
+                "claimed": False,
+            }
+
+    claimer = RewardsApp()
+    claimer.client = OfflineClient()
+    claimer.add_keys()
+    assert len(claimer.keys) == 1
+    claimer.research()
+    assert claimer.keys[0].normal_identity["cosmos_address"].startswith("nesa1")
+    report = app_module.RESEARCH_PATH.read_text(encoding="utf-8")
+    assert secret_text not in report
+    assert secret_text not in capsys.readouterr().out
+    claimer.wipe_keys()

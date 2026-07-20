@@ -28,6 +28,9 @@ chmod 700 nesa-claimer install.sh
 On the first run, choose **Option 1** to install everything required. When the
 installation finishes, the main menu will open automatically.
 
+Option 1 also verifies RIPEMD160 support. If the system implementation is
+unavailable, the compatible fallback is installed and tested automatically.
+
 For later runs:
 
 ```bash

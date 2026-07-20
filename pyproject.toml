@@ -17,6 +17,7 @@ dependencies = [
   "rich==13.9.4",
   "eth-utils==5.3.1",
   "eth-hash[pycryptodome]==0.7.1",
+  "pycryptodome==3.23.0",
   "coincurve==20.0.0",
   "bech32==1.2.0",
   "cryptography==43.0.3",

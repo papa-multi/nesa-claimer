@@ -83,6 +83,17 @@ then
 fi
 success "Python $($PYTHON -c 'import platform; print(platform.python_version())')"
 
+if "$PYTHON" - <<'PY_RIPEMD_SYSTEM'
+import hashlib
+expected = "9c1185a5c5e9fc54612808977ee8f548b2258d31"
+raise SystemExit(0 if hashlib.new("ripemd160", b"").hexdigest() == expected else 1)
+PY_RIPEMD_SYSTEM
+then
+  success "System RIPEMD160 support detected"
+else
+  warn "System RIPEMD160 is unavailable; the verified PyCryptodome fallback will be installed."
+fi
+
 info "Creating isolated virtual environment"
 if [[ ! -x "$VENV_DIR/bin/python" ]]; then
   "$PYTHON" -m venv "$VENV_DIR" || fail \
@@ -90,11 +101,13 @@ if [[ ! -x "$VENV_DIR/bin/python" ]]; then
 fi
 
 info "Installing Python dependencies"
-"$VENV_DIR/bin/python" -m pip install --upgrade pip setuptools wheel
-"$VENV_DIR/bin/python" -m pip install --upgrade -e "$PROJECT_DIR"
+"$VENV_DIR/bin/python" -m pip install --upgrade pip setuptools wheel || \
+  fail "Could not update Python package tooling. Check network access and retry."
+"$VENV_DIR/bin/python" -m pip install --upgrade -e "$PROJECT_DIR" || \
+  fail "Could not install application dependencies, including the RIPEMD160 fallback."
 
 info "Verifying installation"
-"$VENV_DIR/bin/python" - <<'PY_VERIFY'
+if ! "$VENV_DIR/bin/python" - <<'PY_VERIFY'
 import ecdsa
 import base58
 import requests
@@ -102,12 +115,20 @@ import rich
 import bech32
 import coincurve
 import cryptography
+from Crypto.Hash import RIPEMD160
 from eth_utils import to_checksum_address
 import nesa_claimer
 
 assert nesa_claimer.VERSION
 assert to_checksum_address("0x0000000000000000000000000000000000000000")
+assert RIPEMD160.new(data=b"").hexdigest() == "9c1185a5c5e9fc54612808977ee8f548b2258d31"
+backend = nesa_claimer.ripemd160_backend()
+assert nesa_claimer.ripemd160(b"").hex() == "9c1185a5c5e9fc54612808977ee8f548b2258d31"
+print(f"RIPEMD160 backend verified: {backend}")
 PY_VERIFY
+then
+  fail "Installation verification failed. RIPEMD160 support is not usable in the project environment."
+fi
 
 chmod 700 "$PROJECT_DIR/nesa-claimer" "$PROJECT_DIR/install.sh"
 success "All prerequisites are installed and verified."

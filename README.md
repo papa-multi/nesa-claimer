@@ -218,46 +218,7 @@ The claim payload implementations were checked against Nesa's official
 `b204312dd53104df9680f08438c15e25177c0dc8`. Re-audit against upstream whenever
 Nesa changes its claim process or endpoints.
 
-## Files, state, and privacy
 
-Repository files contain application source, tests, documentation, and GitHub
-workflow metadata only. Runtime state is stored outside the repository under
-`~/.local/state/nesa-claimer/` by default. Set `NESA_CLAIMER_STATE_DIR` to choose
-a different state directory.
-
-The state directory may contain public but personally identifying information,
-including addresses, Node IDs, allocations, transaction hashes, and errors. Do
-not publish it unless you have reviewed and intentionally redacted it.
-
-The project `.gitignore` excludes virtual environments, build products, caches,
-logs, environment files, key files, credential exports, wallet files, databases,
-runtime state, reports, and common backup/archive formats. Git ignore rules are
-not a substitute for review: a file already tracked by Git remains tracked even
-after it is added to `.gitignore`.
-
-## Safe GitHub publishing checklist
-
-Run these checks immediately before every commit and push:
-
-```bash
-git status --short --ignored
-git ls-files
-.venv/bin/python scripts/scan-secrets.py .
-.venv/bin/python -m pytest -q
-```
-
-Then verify:
-
-- every file shown by `git ls-files` is intended to be public;
-- no `.env`, private-key list, token file, wallet export, state report, database,
-  terminal transcript, screenshot, or backup is staged;
-- test fixtures use randomly generated disposable keys, not real credentials;
-- no secret was previously committed in the branch history; and
-- the configured Git remote points to the intended repository.
-
-If a real secret was ever committed, deleting the file in a later commit is not
-enough. Revoke or migrate the credential and clean the Git history before
-publishing.
 
 ## Development
 

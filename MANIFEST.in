@@ -1,0 +1,8 @@
+include LICENSE
+include README.md
+include SECURITY.md
+include requirements.txt
+include install.sh
+include nesa-claimer
+recursive-include tests *.py
+recursive-include scripts *.py

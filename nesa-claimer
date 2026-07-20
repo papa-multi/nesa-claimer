@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+PYTHON="$PROJECT_DIR/.venv/bin/python"
+
+launch_app() {
+  exec "$PYTHON" "$PROJECT_DIR/nesa_claimer.py"
+}
+
+if [[ -x "$PYTHON" ]] && "$PYTHON" -c 'import nesa_claimer, rich, requests, ecdsa, eth_utils' >/dev/null 2>&1; then
+  launch_app
+fi
+
+while true; do
+  clear 2>/dev/null || true
+  printf '\033[1;36m%s\033[0m\n' '╭──────────────────────────────────────────────────────────╮'
+  printf '\033[1;36m│ %-56s │\033[0m\n' 'Nesa Claimer — First-time Setup'
+  printf '\033[1;36m%s\033[0m\n\n' '╰──────────────────────────────────────────────────────────╯'
+  printf '  \033[1;36m1\033[0m  Install all prerequisites\n'
+  printf '  \033[2m2  Securely add private keys          [install first]\033[0m\n'
+  printf '  \033[2m3  Research Node IDs and rewards      [install first]\033[0m\n'
+  printf '  \033[2m4  Add EVM destination address        [install first]\033[0m\n'
+  printf '  \033[2m5  Claim all available rewards        [install first]\033[0m\n'
+  printf '  \033[1;36m0\033[0m  Exit\n\n'
+  read -r -p 'Select an option [0-5]: ' choice
+  case "$choice" in
+    1)
+      bash "$PROJECT_DIR/install.sh"
+      if [[ -x "$PYTHON" ]] && "$PYTHON" -c 'import nesa_claimer' >/dev/null 2>&1; then
+        printf '\nInstallation complete. Starting Nesa Claimer…\n'
+        sleep 1
+        launch_app
+      fi
+      printf '\nInstallation did not complete. Press Enter to return to the menu.'
+      read -r _
+      ;;
+    2|3|4|5)
+      printf '\nPlease select Option 1 first. Press Enter to return to the menu.'
+      read -r _
+      ;;
+    0) exit 0 ;;
+    *)
+      printf '\nInvalid selection. Press Enter to try again.'
+      read -r _
+      ;;
+  esac
+done

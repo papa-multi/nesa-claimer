@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nesa-claimer"
+version = "1.0.0"
+description = "Secure menu-driven discovery and claiming for historical Nesa miner rewards"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Community contributors" }]
+dependencies = [
+  "requests==2.32.3",
+  "ecdsa==0.19.1",
+  "rich==13.9.4",
+  "eth-utils==5.3.1",
+  "eth-hash[pycryptodome]==0.7.1",
+  "coincurve==20.0.0",
+  "bech32==1.2.0",
+  "cryptography==43.0.3",
+  "base58==2.1.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==8.3.5", "build==1.2.2.post1"]
+
+[project.scripts]
+nesa-claimer = "nesa_claimer:main"
+
+[tool.setuptools]
+py-modules = ["nesa_claimer"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

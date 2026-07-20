@@ -5,11 +5,11 @@ PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON="$PROJECT_DIR/.venv/bin/python"
 
 launch_app() {
-  exec "$PYTHON" "$PROJECT_DIR/nesa_claimer.py"
+  exec "$PYTHON" "$PROJECT_DIR/nesa_claimer.py" "$@"
 }
 
-if [[ -x "$PYTHON" ]] && "$PYTHON" -c 'import nesa_claimer, rich, requests, ecdsa, eth_utils' >/dev/null 2>&1; then
-  launch_app
+if [[ -x "$PYTHON" ]] && "$PYTHON" "$PROJECT_DIR/nesa_claimer.py" --preflight --quiet; then
+  launch_app "$@"
 fi
 
 while true; do
@@ -27,10 +27,10 @@ while true; do
   case "$choice" in
     1)
       bash "$PROJECT_DIR/install.sh"
-      if [[ -x "$PYTHON" ]] && "$PYTHON" -c 'import nesa_claimer' >/dev/null 2>&1; then
+      if [[ -x "$PYTHON" ]] && "$PYTHON" "$PROJECT_DIR/nesa_claimer.py" --preflight --quiet; then
         printf '\nInstallation complete. Starting Nesa Claimer…\n'
         sleep 1
-        launch_app
+        launch_app "$@"
       fi
       printf '\nInstallation did not complete. Press Enter to return to the menu.'
       read -r _

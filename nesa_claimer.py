@@ -7,6 +7,7 @@ import getpass
 import hashlib
 import json
 import os
+import platform
 import re
 import secrets
 import subprocess
@@ -205,6 +206,53 @@ def derive_normal_identity(
         "cosmos_address": cosmos_address,
         "node_id": node_id,
         "node_public_key": node_public.hex(),
+    }
+
+
+def runtime_preflight() -> dict[str, str]:
+    """Verify the installed runtime and cryptographic primitives without networking."""
+    if sys.version_info < (3, 10):
+        raise CliError(
+            f"Python 3.10 or newer is required; detected {platform.python_version()}."
+        )
+
+    backend = ripemd160_backend()
+    if ripemd160(b"a").hex() != "0bdc9d2d256b3ee9daae347be6f4dc835a467ffe":
+        raise CliError("RIPEMD160 failed its standard cryptographic test vector.")
+
+    zero_address = validate_evm_address("0x0000000000000000000000000000000000000000")
+    if zero_address != "0x0000000000000000000000000000000000000000":
+        raise CliError("EVM address checksum verification failed.")
+
+    secret: bytearray | None = None
+    try:
+        while secret is None:
+            candidate = bytearray(secrets.token_bytes(32))
+            try:
+                ecdsa.SigningKey.from_string(bytes(candidate), curve=ecdsa.SECP256k1)
+                secret = candidate
+            except Exception:
+                for index in range(len(candidate)):
+                    candidate[index] = 0
+        identity = derive_normal_identity(secret)
+        public_key = compressed_public_key(secret)
+        if (
+            len(public_key) != 66
+            or not identity["cosmos_address"].startswith("nesa1")
+            or len(identity["node_public_key"]) != 64
+            or not identity["node_id"]
+        ):
+            raise CliError("Disposable identity derivation preflight failed.")
+    finally:
+        if secret is not None:
+            for index in range(len(secret)):
+                secret[index] = 0
+
+    return {
+        "python": platform.python_version(),
+        "executable": sys.executable,
+        "ripemd160": backend,
+        "status": "ready",
     }
 
 
@@ -661,12 +709,10 @@ class RewardsApp:
         checks.add_row("ecdsa", f"[green]{ecdsa.__version__}[/green]")
         checks.add_row("Terminal UI", "[green]Rich installed[/green]")
         checks.add_row("EIP-55 / Keccak", "[green]eth-utils installed[/green]")
-        crypto_repair_required = False
         try:
             backend = ripemd160_backend()
             checks.add_row("RIPEMD160", f"[green]{backend} verified[/green]")
-        except CliError as exc:
-            crypto_repair_required = True
+        except CliError:
             checks.add_row("RIPEMD160", "[red]Unavailable — repair required[/red]")
         console.print(checks)
 
@@ -677,28 +723,21 @@ class RewardsApp:
                 "The standalone system installer is available in the GitHub repository."
             )
             return
-        if crypto_repair_required:
-            console.print(
-                "[yellow]RIPEMD160 support is missing. Running the prerequisite "
-                "installer automatically…[/yellow]"
-            )
-        elif not Confirm.ask(
-            "Prerequisites are already available. Re-run the full system installer?",
-            default=False,
-        ):
-            console.print("[green]Prerequisite verification complete.[/green]")
-            return
+        console.print("[cyan]Running the complete prerequisite installer…[/cyan]")
         result = subprocess.run(["bash", str(installer)], check=False)
         if result.returncode != 0:
             raise CliError(f"Prerequisite installer exited with status {result.returncode}.")
         try:
-            backend = ripemd160_backend()
+            result = runtime_preflight()
         except CliError as exc:
             raise CliError(
-                "Installation completed, but RIPEMD160 verification still failed. "
-                "Check the installer output and Python environment before research."
+                "Installation completed, but the application preflight still failed. "
+                "Check the installer output and Python environment before continuing."
             ) from exc
-        console.print(f"[green]RIPEMD160 verified with {backend}.[/green]")
+        console.print(
+            f"[green]Runtime verified: Python {result['python']}, "
+            f"RIPEMD160 via {result['ripemd160']}.[/green]"
+        )
         console.print("[bold green]All prerequisites installed and verified.[/bold green]")
 
     def wipe_keys(self) -> None:
@@ -1196,6 +1235,24 @@ class RewardsApp:
 
 
 def main() -> int:
+    arguments = set(sys.argv[1:])
+    if "--preflight" in arguments:
+        unknown = arguments - {"--preflight", "--quiet"}
+        if unknown:
+            console.print(f"[red]Unknown preflight option(s): {', '.join(sorted(unknown))}[/red]")
+            return 2
+        try:
+            result = runtime_preflight()
+        except CliError as exc:
+            if "--quiet" not in arguments:
+                console.print(f"[bold red]Preflight failed:[/bold red] {exc}")
+            return 1
+        if "--quiet" not in arguments:
+            console.print(
+                f"[green]Preflight passed[/green] · Python {result['python']} · "
+                f"RIPEMD160: {result['ripemd160']}"
+            )
+        return 0
     try:
         RewardsApp().run()
         return 0

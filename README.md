@@ -25,11 +25,14 @@ chmod 700 nesa-claimer install.sh
 ./nesa-claimer
 ```
 
-On the first run, choose **Option 1** to install everything required. When the
-installation finishes, the main menu will open automatically.
+On the first run, choose **Option 1**. It detects the operating system, installs
+the required system packages, and creates an isolated `.venv` automatically.
+When installation finishes, the main menu opens automatically.
 
 Option 1 also verifies RIPEMD160 support. If the system implementation is
 unavailable, the compatible fallback is installed and tested automatically.
+The launcher always uses the project virtual environment; manual activation is
+not required.
 
 For later runs:
 

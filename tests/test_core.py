@@ -1,4 +1,6 @@
 import secrets
+import subprocess
+import sys
 
 import pytest
 import nesa_claimer as app_module
@@ -16,6 +18,7 @@ from nesa_claimer import (
     normalize_private_key,
     ripemd160,
     ripemd160_backend,
+    runtime_preflight,
     validate_evm_address,
 )
 
@@ -39,6 +42,25 @@ def test_ripemd160_standard_vectors():
     assert ripemd160(b"").hex() == "9c1185a5c5e9fc54612808977ee8f548b2258d31"
     assert ripemd160(b"a").hex() == "0bdc9d2d256b3ee9daae347be6f4dc835a467ffe"
     assert ripemd160_backend() in {"hashlib/OpenSSL", "PyCryptodome fallback"}
+
+
+def test_runtime_preflight_exercises_isolated_crypto_environment():
+    result = runtime_preflight()
+    assert result["status"] == "ready"
+    assert result["python"] == ".".join(str(item) for item in sys.version_info[:3])
+    assert result["executable"] == sys.executable
+    assert result["ripemd160"] in {"hashlib/OpenSSL", "PyCryptodome fallback"}
+
+
+def test_noninteractive_application_preflight_command():
+    result = subprocess.run(
+        [sys.executable, app_module.__file__, "--preflight"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0
+    assert "Preflight passed" in result.stdout
 
 
 def test_ripemd160_uses_verified_fallback(monkeypatch):
@@ -88,14 +110,14 @@ def test_private_key_rejects_invalid_values(value):
 
 
 def test_evm_checksum_validation_and_normalization():
-    expected = "0xC693b0F0358D23e19f03e15F964ECa9F9D1ae32d"
+    expected = "0x52908400098527886E0F7030069857D2E4169EE7"
     assert validate_evm_address(expected.lower()) == expected
     assert validate_evm_address(expected) == expected
 
 
 def test_invalid_mixed_case_checksum_is_rejected():
     with pytest.raises(Exception):
-        validate_evm_address("0xc693b0F0358D23e19f03e15F964ECa9F9D1ae32d")
+        validate_evm_address("0x52908400098527886e0F7030069857D2E4169EE7")
 
 
 def test_claim_payload_matches_official_canonical_shape():
@@ -105,14 +127,14 @@ def test_claim_payload_matches_official_canonical_shape():
         secret,
         public_key,
         "Node123",
-        "0xC693b0F0358D23e19f03e15F964ECa9F9D1ae32d",
+        "0x52908400098527886E0F7030069857D2E4169EE7",
         "1230000000000000000",
         nonce="ab" * 32,
         timestamp=1234567890,
     )
     assert payload["data"] == {
         "node_id": "Node123",
-        "evm_address": "0xc693b0f0358d23e19f03e15f964eca9f9d1ae32d",
+        "evm_address": "0x52908400098527886e0f7030069857d2e4169ee7",
         "allocation": "1230000000000000000",
     }
     assert payload["auth"]["public_key"] == public_key
@@ -136,7 +158,7 @@ def test_normal_identity_and_dual_signature_payload():
     payload = build_normal_claim_payload(
         secret,
         identity,
-        "0xC693b0F0358D23e19f03e15F964ECa9F9D1ae32d",
+        "0x52908400098527886E0F7030069857D2E4169EE7",
         allocation,
     )
     assert payload["data"]["node_id"] == identity["node_id"]

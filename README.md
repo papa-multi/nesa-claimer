@@ -35,10 +35,6 @@ cd nesa-claimer
 ./nesa-claimer
 ```
 
-## Video tutorial
-
-[Watch the complete Linux terminal tutorial](tutorial/nesa-claimer-tutorial.mp4).
-
 ## Menu
 
 ```text

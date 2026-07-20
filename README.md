@@ -37,6 +37,7 @@ not required.
 Ubuntu 20.04, 22.04, and 24.04 are supported. If an older Ubuntu release only
 provides Python 3.8 or 3.9, Option 1 automatically installs an isolated,
 project-managed Python 3.12 runtime without replacing the system Python.
+The verified application runtime range is Python 3.10 through 3.12.
 
 For later runs:
 

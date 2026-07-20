@@ -119,10 +119,10 @@ fi
 find_compatible_python() {
   local candidate
   for candidate in \
-    python3.14 python3.13 python3.12 python3.11 python3.10 python3 python; do
+    python3.12 python3.11 python3.10 python3 python; do
     if command -v "$candidate" >/dev/null 2>&1 && "$candidate" - <<'PY_VERSION' >/dev/null 2>&1
 import sys
-raise SystemExit(0 if sys.version_info >= (3, 10) else 1)
+raise SystemExit(0 if (3, 10) <= sys.version_info < (3, 13) else 1)
 PY_VERSION
     then
       command -v "$candidate"
@@ -179,7 +179,7 @@ if PYTHON="$(find_compatible_python)"; then
   :
 elif [[ "${NESA_CLAIMER_SKIP_SYSTEM_PACKAGES:-0}" == "1" ]]; then
   detected="$(python3 --version 2>&1 || python --version 2>&1 || printf 'not installed')"
-  fail "Python 3.10 or newer is required when system-package installation is skipped. Detected: $detected"
+  fail "Python 3.10 through 3.12 is required when system-package installation is skipped. Detected: $detected"
 else
   detected="$(python3 --version 2>&1 || python --version 2>&1 || printf 'not installed')"
   warn "No compatible system Python was found (detected: $detected)."
@@ -189,10 +189,10 @@ fi
 
 if [[ ! -x "$PYTHON" ]] || ! "$PYTHON" - <<'PY_VERSION' >/dev/null 2>&1
 import sys
-raise SystemExit(0 if sys.version_info >= (3, 10) else 1)
+raise SystemExit(0 if (3, 10) <= sys.version_info < (3, 13) else 1)
 PY_VERSION
 then
-  fail "A working Python 3.10 or newer runtime could not be installed."
+  fail "A working Python 3.10 through 3.12 runtime could not be installed."
 fi
 
 PYTHON_VERSION="$($PYTHON -c 'import platform; print(platform.python_version())')"
@@ -220,7 +220,7 @@ info "Creating or repairing the isolated virtual environment"
 if [[ -d "$VENV_DIR" ]]; then
   if [[ ! -x "$VENV_DIR/bin/python" ]] || ! "$VENV_DIR/bin/python" - <<'PY_VENV' >/dev/null 2>&1
 import sys
-raise SystemExit(0 if sys.version_info >= (3, 10) else 1)
+raise SystemExit(0 if (3, 10) <= sys.version_info < (3, 13) else 1)
 PY_VENV
   then
     warn "The existing virtual environment is incomplete or incompatible; rebuilding it."

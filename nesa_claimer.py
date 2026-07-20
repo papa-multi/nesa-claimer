@@ -211,9 +211,10 @@ def derive_normal_identity(
 
 def runtime_preflight() -> dict[str, str]:
     """Verify the installed runtime and cryptographic primitives without networking."""
-    if sys.version_info < (3, 10):
+    if not ((3, 10) <= sys.version_info < (3, 13)):
         raise CliError(
-            f"Python 3.10 or newer is required; detected {platform.python_version()}."
+            "Python 3.10 through 3.12 is required; "
+            f"detected {platform.python_version()}."
         )
 
     backend = ripemd160_backend()

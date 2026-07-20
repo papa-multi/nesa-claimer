@@ -94,12 +94,6 @@ The tool asks for confirmation before submitting any claim.
 - Memory clearing is best effort; use a trusted and secure computer.
 - Always verify the destination address before claiming.
 
-The repository includes a secret scanner. Run it before committing:
-
-```bash
-python3 scripts/scan-secrets.py .
-```
-
 ## Public services used
 
 | Purpose | Endpoint |
